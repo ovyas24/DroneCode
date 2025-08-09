@@ -88,7 +88,8 @@ PID pitchPID{ 0.9f, 0.05f, 0.25f,0, 0, -25, 25, -15, 15 };  // gentle leveling
 
 static inline float fconstrain(float v, float a, float b) { return v<a?a:(v>b?b:v); }
 
-floa t pidStep(PID& p, float err, float dt) {
+// Execute one PID controller step
+float pidStep(PID& p, float err, float dt) {
   p.iTerm = fconstrain(p.iTerm + err * p.Ki * dt, p.iMin, p.iMax);
   const float d = (err - p.prevErr) / dt;
   p.prevErr = err;
@@ -163,7 +164,8 @@ bool initAlt() {
                   Adafruit_BMP280::SAMPLING_X8,
                   Adafruit_BMP280::SAMPLING_X8,
                   Adafruit_BMP280::FILTER_X16,
-                  Adafruit_BMP280::STANDBY_MS_20);
+                  // Use the closest available standby interval
+                  Adafruit_BMP280::STANDBY_MS_1);
   return true;
 #endif
 }
