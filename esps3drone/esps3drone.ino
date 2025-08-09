@@ -29,6 +29,11 @@
 #include <math.h>
 #include <esp32-hal-ledc.h>
 
+// Some build setups miss LEDC prototypes; declare them to satisfy the compiler
+double ledcSetup(uint8_t channel, double freq, uint8_t resolution_bits);
+void   ledcAttachPin(uint8_t pin, uint8_t channel);
+void   ledcWrite(uint8_t channel, uint32_t duty);
+
 // ===== Altitude sensor selection (choose ONE) =====
 // #define USE_MS5611
 // #define USE_VL53L1X
