@@ -27,6 +27,12 @@
 #include <WebServer.h>
 #include <Wire.h>
 #include <math.h>
+#include <esp32-hal-ledc.h>
+
+// Some build setups miss LEDC prototypes; declare them to satisfy the compiler
+double ledcSetup(uint8_t channel, double freq, uint8_t resolution_bits);
+void   ledcAttachPin(uint8_t pin, uint8_t channel);
+void   ledcWrite(uint8_t channel, uint32_t duty);
 
 // ===== Altitude sensor selection (choose ONE) =====
 // #define USE_MS5611
@@ -75,6 +81,9 @@ int throttleDuty     = 0;                 // current throttle duty
 const int THROTTLE_SLEW_PER_TICK = 2;     // duty change limit per loop tick
 
 // ===== PID (outputs are duty deltas) =====
+struct PID;
+float pidStep(struct PID& p, float err, float dt);
+
 struct PID {
   float Kp, Ki, Kd;
   float iTerm=0, prevErr=0;
@@ -88,7 +97,8 @@ PID pitchPID{ 0.9f, 0.05f, 0.25f,0, 0, -25, 25, -15, 15 };  // gentle leveling
 
 static inline float fconstrain(float v, float a, float b) { return v<a?a:(v>b?b:v); }
 
-floa t pidStep(PID& p, float err, float dt) {
+// Execute one PID controller step
+float pidStep(struct PID& p, float err, float dt) {
   p.iTerm = fconstrain(p.iTerm + err * p.Ki * dt, p.iMin, p.iMax);
   const float d = (err - p.prevErr) / dt;
   p.prevErr = err;
@@ -97,6 +107,7 @@ floa t pidStep(PID& p, float err, float dt) {
 
 // ===== State machine =====
 enum FlightState { IDLE, TEST_MOTORS, TAKEOFF, HOVER, LANDING, DISARMED, ABORTED };
+void enterState(enum FlightState s);
 volatile FlightState fsm = IDLE;
 uint32_t stateStartMs = 0;
 
@@ -127,7 +138,7 @@ void motorSelfTest() {
   ledcWrite(M4_CH, t); delay(ms); ledcWrite(M4_CH, 0);
 }
 
-void enterState(FlightState s) { fsm = s; stateStartMs = millis(); }
+void enterState(enum FlightState s) { fsm = s; stateStartMs = millis(); }
 
 String stateName() {
   switch (fsm) {
@@ -163,7 +174,8 @@ bool initAlt() {
                   Adafruit_BMP280::SAMPLING_X8,
                   Adafruit_BMP280::SAMPLING_X8,
                   Adafruit_BMP280::FILTER_X16,
-                  Adafruit_BMP280::STANDBY_MS_20);
+                  // Use the closest available standby interval
+                  Adafruit_BMP280::STANDBY_MS_1);
   return true;
 #endif
 }
